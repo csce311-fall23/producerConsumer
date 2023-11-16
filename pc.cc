@@ -18,6 +18,15 @@ const int MAX_prod=1000;
 
 const int buffer_size = 4;
 
+/*
+ * This struct is for all the shared data, including the mutex
+ * For the producer-consumer/bounded buffer problem all threads access the SAME
+ * Shared data.
+ *
+ * If you need both shared and thread-unique data like an index or id,
+ * define another struct that has a pointer to a shared, allocate one instance of the shared,
+ * and then create & initialize each struct for each thread.
+ */
 typedef struct __shared {
     int ct;
     
@@ -36,7 +45,7 @@ void* producer_thread(void* arg){
 
     bool more_work = true;
     while(more_work){
-        usleep(100);
+        usleep(100); //this is a good way to do "non-CPU" fake work, just wait. # is in MICROsecondss.
         #ifndef NO_SYNCRO
         sem_wait(&(sh->empty));
         sem_wait(&(sh->mutex));
@@ -114,6 +123,9 @@ void* consumer_thread(void* arg){
 
 int pc(const int num_p, const int num_c){
     // using pthread;
+
+
+    //semaphore and shared initialization code
     shared sh;
     sem_init(&sh.empty,0,buffer_size);
     sem_init(&sh.full,0,0);
@@ -124,6 +136,20 @@ int pc(const int num_p, const int num_c){
 
     sh.ct = 0;
 
+    /*
+     * pthread_create() 1st argument: the thread to initialize (in ps/cs)
+     *   2nd argument: leave as NULL often
+     *   3rd argument: the function to call for the thread
+     *   4th argument: the SINGLE argument to the thread function (3rd argument)
+     *           If you want to pass multiple argments to the thread arg (called arg, above), use a struct
+     *           If each thread gets DIFFERENT arguments, instantiate a new struct for each (not done here)
+     *
+     *   Below code has two loops for different types of threads (consumers and producers)
+     *      -> code with one type would have one loop
+     *
+     *   The ps and cs arrays are useful here because of the pthread_join code,
+     *       which waits until are done. 
+     */
     pthread_t ps[num_p];
     for(int i =0;i<num_p;++i){
         pthread_create(&ps[i],NULL,producer_thread,&sh);
@@ -151,7 +177,7 @@ int pc(const int num_p, const int num_c){
 
     std::cout<<"all_okay, returns: "<<all_okay<<std::endl;
 
-    // pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER;
+    // pthread_mutex_t mutex1 = PTHREAD_MUTEX_INITIALIZER; // if you don't want to init a semaphore
 
     using std::cout;
     using std::endl;
@@ -177,7 +203,7 @@ int main(){
     
     int ok = 0;
     for(int i = 0;i<100 && !ok; ++i ){
-        ok=pc(2,4);
+        ok=pc(2,4);//pc() was originally a main(). This code is just testing the implementation
         cout<<"Round "<<i<<endl;
         // int dump;
         // std::cin>>dump;
